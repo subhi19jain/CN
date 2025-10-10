@@ -1,36 +1,29 @@
-#define _WIN32_WINNT 0x0601
 #include <iostream>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#pragma comment(lib, "ws2_32.lib")
+#include <cstring>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+#define PORT 8080
 
 int main() {
-    WSADATA wsa;
-    WSAStartup(MAKEWORD(2, 2), &wsa);
-
-    SOCKET sock;
-    sockaddr_in servAddr{};
+    int sock = 0;
+    struct sockaddr_in serv_addr;
     char buffer[1024] = {0};
-    std::string message;
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
-    servAddr.sin_family = AF_INET;
-    servAddr.sin_addr.s_addr = inet_addr("127.0.56.0");
-    servAddr.sin_port = htons(5000);
 
-    if (connect(sock, (sockaddr*)&servAddr, sizeof(servAddr)) == SOCKET_ERROR) {
-        std::cerr << "Connection failed: " << WSAGetLastError() << std::endl;
-        return 1;
-    }
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(PORT);
+    inet_pton(AF_INET, "127.0.46.0", &serv_addr.sin_addr);
 
-    std::cout << "Enter message to server: ";
-    getline(std::cin, message);
-    send(sock, message.c_str(), message.size(), 0);
+    connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
 
-    recv(sock, buffer, sizeof(buffer), 0);
-    std::cout << "Server replies: " << buffer << std::endl;
+    std::string msg = "Hello from Client!";
+    send(sock, msg.c_str(), msg.length(), 0);
 
-    closesocket(sock);
-    WSACleanup();
+    read(sock, buffer, 1024);
+    std::cout << "Server says: " << buffer << std::endl;
+
+    close(sock);
     return 0;
 }

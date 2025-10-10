@@ -1,55 +1,43 @@
-#define _WIN32_WINNT 0x0601
 #include <iostream>
 #include <fstream>
-#include <winsock2.h>
-#pragma comment(lib, "ws2_32.lib")
+#include <unistd.h>
+#include <arpa/inet.h>
+
+#define PORT 8081
 
 int main() {
-    WSADATA wsa;
-    WSAStartup(MAKEWORD(2, 2), &wsa);
+    int server_fd, new_socket;
+    struct sockaddr_in address;
+    char buffer[1024] = {0};
 
-    SOCKET server_fd, client_fd;
-    sockaddr_in serverAddr{}, clientAddr{};
-    char buffer[4096];
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
 
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = inet_addr("127.0.56.0");
-    serverAddr.sin_port = htons(6000);
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = inet_addr("127.0.46.0");
+    address.sin_port = htons(PORT);
 
-    bind(server_fd, (sockaddr*)&serverAddr, sizeof(serverAddr));
-    listen(server_fd, 3);
-    std::cout << "File Transfer Server running on 127.0.56.0:6000\n";
+    bind(server_fd, (struct sockaddr *)&address, sizeof(address));
+    listen(server_fd, 1);
 
-    int clientSize = sizeof(clientAddr);
-    client_fd = accept(server_fd, (sockaddr*)&clientAddr, &clientSize);
+    std::cout << "Waiting for client...\n";
+    socklen_t addrlen = sizeof(address);
+    new_socket = accept(server_fd, (struct sockaddr *)&address, &addrlen);
 
-    // Read filename
-    char filename[256] = {0};
-    recv(client_fd, filename, sizeof(filename), 0);
-    std::string newFile = "Server_";
-    newFile += filename;
-
-    // Read file size
-    long long filesize;
-    recv(client_fd, (char*)&filesize, sizeof(filesize), 0);
-
-    std::ofstream outfile(newFile, std::ios::binary);
-    long long received = 0;
-    while (received < filesize) {
-        int bytes = recv(client_fd, buffer, sizeof(buffer), 0);
-        if (bytes <= 0) break;
-        outfile.write(buffer, bytes);
-        received += bytes;
+    std::ifstream file("rishabh.txt", std::ios::binary);
+    if (!file) {
+        std::cerr << "File not found.\n";
+        close(new_socket);
+        return 1;
     }
-    outfile.close();
 
-    const char* msg = "File received successfully!";
-    send(client_fd, msg, strlen(msg), 0);
-    std::cout << "Received file: " << filename << std::endl;
+    while (!file.eof()) {
+        file.read(buffer, sizeof(buffer));
+        send(new_socket, buffer, file.gcount(), 0);
+    }
 
-    closesocket(client_fd);
-    closesocket(server_fd);
-    WSACleanup();
+    std::cout << "File sent.\n";
+    file.close();
+    close(new_socket);
+    close(server_fd);
     return 0;
 }

@@ -1,49 +1,31 @@
-#define _WIN32_WINNT 0x0601
 #include <iostream>
 #include <fstream>
-#include <winsock2.h>
-#pragma comment(lib, "ws2_32.lib")
+#include <unistd.h>
+#include <arpa/inet.h>
+
+#define PORT 8081
 
 int main() {
-    WSADATA wsa;
-    WSAStartup(MAKEWORD(2, 2), &wsa);
-
-    SOCKET sock;
-    sockaddr_in servAddr{};
-    char buffer[4096];
+    int sock = 0;
+    struct sockaddr_in serv_addr;
+    char buffer[1024] = {0};
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
-    servAddr.sin_family = AF_INET;
-    servAddr.sin_addr.s_addr = inet_addr("127.0.56.0");
-    servAddr.sin_port = htons(6000);
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(PORT);
+    inet_pton(AF_INET, "127.0.46.0", &serv_addr.sin_addr);
 
-    connect(sock, (sockaddr*)&servAddr, sizeof(servAddr));
+    connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
 
-    std::string filepath;
-    std::cout << "Enter file path to send: ";
-    getline(std::cin, filepath);
+    std::ofstream outfile("rishabh.txt", std::ios::binary);
 
-    std::ifstream infile(filepath, std::ios::binary);
-    infile.seekg(0, std::ios::end);
-    long long filesize = infile.tellg();
-    infile.seekg(0, std::ios::beg);
-
-    std::string filename = filepath.substr(filepath.find_last_of("/\\") + 1);
-
-    send(sock, filename.c_str(), filename.size() + 1, 0);
-    send(sock, (char*)&filesize, sizeof(filesize), 0);
-
-    while (!infile.eof()) {
-        infile.read(buffer, sizeof(buffer));
-        send(sock, buffer, infile.gcount(), 0);
+    int bytes;
+    while ((bytes = read(sock, buffer, 1024)) > 0) {
+        outfile.write(buffer, bytes);
     }
-    infile.close();
 
-    char reply[1024] = {0};
-    recv(sock, reply, sizeof(reply), 0);
-    std::cout << reply << std::endl;
-
-    closesocket(sock);
-    WSACleanup();
+    std::cout << "File received.\n";
+    outfile.close();
+    close(sock);
     return 0;
 }
